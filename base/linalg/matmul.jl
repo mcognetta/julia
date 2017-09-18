@@ -674,10 +674,25 @@ function matmul2x2!(C::AbstractMatrix, tA, tB, A::AbstractMatrix, B::AbstractMat
     else
         B11 = B[1,1]; B12 = B[1,2]; B21 = B[2,1]; B22 = B[2,2]
     end
-    C[1,1] = A11*B11 + A12*B21
-    C[1,2] = A11*B12 + A12*B22
-    C[2,1] = A21*B11 + A22*B21
-    C[2,2] = A21*B12 + A22*B22
+
+    # C[1,1] = A11*B11 + A12*B21
+    # C[1,2] = A11*B12 + A12*B22
+    # C[2,1] = A21*B11 + A22*B21
+    # C[2,2] = A21*B12 + A22*B22
+
+    I = (A11+A22)*(B11+B22)
+    II = (A21+A22)*B11
+    III = A11*(B12-B22)
+    IV = A22*(-B11+B21)
+    V = (A11+A12)*B22
+    VI = (-A11+A21)*(B11+B12)
+    VII = (A12-A22)*(B21+B22)
+
+    C[1,1] = I+IV-V+VII
+    C[1,2] = III + V
+    C[2,1] = II + IV
+    C[2,2] = I+III-II+VI
+
     end # inbounds
     C
 end
