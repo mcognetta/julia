@@ -265,7 +265,7 @@ let a = randn(2,2)
     c = Hermitian(b + b')
     @test conj(c) == conj(Array(c))
     cc = copy(c)
-    @test conj!(c) == conj(Array(c))
+    @test conj!(c) == conj(Array(cc))
 end
 
 # 19225
