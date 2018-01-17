@@ -168,6 +168,8 @@ add_fast(x::T, y::T, zs::T...) where {T<:FloatTypes} =
 mul_fast(x::T, y::T, zs::T...) where {T<:FloatTypes} =
     mul_fast(mul_fast(x, y), zs...)
 
+log_fast(base::T, x::T) where {T<:FloatTypes} = div_float_fast(log_fast(x), log_fast(base))
+
 @fastmath begin
     cmp_fast(x::T, y::T) where {T<:FloatTypes} = ifelse(x==y, 0, ifelse(x<y, -1, +1))
 end
