@@ -65,6 +65,9 @@ randn!(MersenneTwister(42), A)
 @test A == [-0.5560268761463861  0.027155338009193845;
             -0.444383357109696  -0.29948409035891055]
 
+# rand rationals
+@test rand(MersenneTwister(42), Rational) == 3027459332170288541//4281166958667568327
+
 for T in (Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64, Int128, UInt128, BigInt,
           Float16, Float32, Float64, Rational{Int})
     r = rand(convert(T, 97):convert(T, 122))

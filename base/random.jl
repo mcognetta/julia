@@ -358,6 +358,11 @@ end
 rand(r::MersenneTwister, ::Type{Int64})   = reinterpret(Int64,  rand(r, UInt64))
 rand(r::MersenneTwister, ::Type{Int128})  = reinterpret(Int128, rand(r, UInt128))
 
+## random rationals
+
+rand{T<:Integer}(r::AbstractRNG, ::Type{Rational{T}}) = Rational{T}(rand(r,T), rand(r, T))
+rand(r::AbstractRNG, ::Type{Rational}) = Rational(rand(r, Int), rand(r, Int))
+
 ## random Complex values
 
 rand{T<:Real}(r::AbstractRNG, ::Type{Complex{T}}) = complex(rand(r, T), rand(r, T))
