@@ -487,8 +487,52 @@ end
 
 const SpecialMatrix = Union{Bidiagonal,SymTridiagonal,Tridiagonal}
 # to avoid ambiguity warning, but shouldn't be necessary
-*(A::AbstractTriangular, B::SpecialMatrix) = Array(A) * Array(B)
-*(A::SpecialMatrix, B::SpecialMatrix) = Array(A) * Array(B)
+#*(A::AbstractTriangular, B::SpecialMatrix) = Array(A) * Array(B)
+#*(A::SpecialMatrix, B::SpecialMatrix) = Array(A) * Array(B)
+
+# moving several to SparseArrays since they call sparse matrix constructors
+
+*(A::SymTridiagonal,     B::BiTriSym) = A_mul_B_td!(zeros(size(A)...), A, B)
+
+# *(A::BiTri,              B::BiTriSym) = A_mul_B_td!(zeros(size(A)...), A, B)
+# *(A::BiTriSym,           B::BiTriSym) = A_mul_B_td!(zero(A), A, B)
+
+# here we are going to specialize when the uplo values match
+# *(A::AbstractTriangular, B::BiTriSym) = A_mul_B_td!(zeros(size(A)...), A, B)
+# function *(A::AbstractTriangular, B::BiTri)
+#     if A.uplo == B.uplo
+#         A_mul_B_td!(zero(A), A, B)
+#     else
+#         A_mul_B_td!(zeros(size(A)...), A, B)
+#     end
+# end
+
+*(A::AbstractTriangular, B::Union{SymTridiagonal, Tridiagonal}) = A_mul_B_td!(zeros(size(A)...), A, B)
+function *(A::UpperTriangular, B::Bidiagonal)
+    if B.uplo == 'U'
+        A_mul_B_td!(zero(A), A, B)
+    else
+        A_mul_B_td!(zeros(size(A)...), A, B)
+    end
+end
+
+function *(A::LowerTriangular, B::Bidiagonal)
+    if B.uplo == 'L'
+        A_mul_B_td!(zero(A), A, B)
+    else
+        A_mul_B_td!(zeros(size(A)...), A, B)
+    end
+end
+
+*(A::AbstractTriangular, B::SymTridiagonal) = A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
+
+*(A::Diagonal,           B::BiTriSym) = A_mul_B_td!(zero(B), A, B)
+
+*(A::Adjoint{<:Any,<:Diagonal}, B::BiTriSym) = A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
+*(A::Transpose{<:Any,<:Diagonal}, B::BiTriSym) = A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
+*(A::Adjoint{<:Any,<:AbstractTriangular}, B::BiTriSym) = A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
+*(A::Transpose{<:Any,<:AbstractTriangular}, B::BiTriSym) = A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
+
 
 #Generic multiplication
 *(A::Bidiagonal{T}, B::AbstractVector{T}) where {T} = *(Array(A), B)

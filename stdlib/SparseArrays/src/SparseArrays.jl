@@ -52,4 +52,9 @@ similar(D::Diagonal, ::Type{T}, dims::Union{Dims{1},Dims{2}}) where {T} = spzero
 similar(S::SymTridiagonal, ::Type{T}, dims::Union{Dims{1},Dims{2}}) where {T} = spzeros(T, dims...)
 similar(M::Tridiagonal, ::Type{T}, dims::Union{Dims{1},Dims{2}}) where {T} = spzeros(T, dims...)
 
+const BiTri = Union{Bidiagonal,Tridiagonal}
+const BiTriSym = Union{Bidiagonal,SymTridiagonal,Tridiagonal}
+
+*(A::BiTri,              B::BiTriSym) = mul!(spzeros(size(A)...), A, B)
+*(A::BiTriSym,           B::BiTriSym) = mul!(spzeros(size(A)...), A, B)
 end
