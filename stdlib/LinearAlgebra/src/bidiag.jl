@@ -510,7 +510,16 @@ const SpecialMatrix = Union{Bidiagonal,SymTridiagonal,Tridiagonal}
 # TS = promote_op(matprod, eltype(A), eltype(B))
 # mul!(similar(B, TS, (size(A,2), size(B,2))), adjoint(A), B)
 
-*(A::AbstractTriangular, B::Union{SymTridiagonal, Tridiagonal}) = A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
+function *(A::AbstractMatrix, B::Diagonal)
+    TS = promote_op(matprod, eltype(A), eltype(B))
+    A_mul_B_td!(similar(A, TS), A, B)
+end
+
+function *(A::AbstractTriangular, B::Union{SymTridiagonal, Tridiagonal})
+    TS = promote_op(matprod, eltype(A), eltype(B))
+    A_mul_B_td!(zeros(TS, size(A)...), A, B)
+end
+
 function *(A::UpperTriangular, B::Bidiagonal)
     TS = promote_op(matprod, eltype(A), eltype(B))
     if B.uplo == 'U'
@@ -529,7 +538,11 @@ function *(A::LowerTriangular, B::Bidiagonal)
     end
 end
 
-*(A::Union{SymTridiagonal, Tridiagonal}, B::AbstractTriangular) = A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
+function *(A::Union{SymTridiagonal, Tridiagonal}, B::AbstractTriangular)
+    TS = promote_op(matprod, eltype(A), eltype(B))
+    A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
+end
+
 function *(A::Bidiagonal, B::UpperTriangular)
     TS = promote_op(matprod, eltype(A), eltype(B))
     if A.uplo == 'U'
@@ -547,8 +560,6 @@ function *(A::Bidiagonal, B::LowerTriangular)
         A_mul_B_td!(zeros(TS, size(A)...), A, B)
     end
 end
-
-*(A::AbstractTriangular, B::SymTridiagonal) = A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
 
 *(A::Diagonal,           B::BiTri) = A_mul_B_td!(zero(B), A, B)
 *(A::Diagonal,           B::SymTridiagonal) = A_mul_B_td!(Tridiagonal(copy(B)), A, B)
