@@ -1587,7 +1587,7 @@ rdiv!(A::LowerTriangular, transB::Transpose{<:Any,<:Union{UpperTriangular,UnitUp
 
 ## Some Triangular-Triangular cases. We might want to write taylored methods
 ## for these cases, but I'm not sure it is worth it.
-(*)(A::Union{Tridiagonal,SymTridiagonal}, B::AbstractTriangular) = rmul!(Matrix(A), B)
+#(*)(A::Union{Tridiagonal,SymTridiagonal}, B::AbstractTriangular) = rmul!(Matrix(A), B)
 
 for (f, f2!) in ((:*, :lmul!), (:\, :ldiv!))
     @eval begin

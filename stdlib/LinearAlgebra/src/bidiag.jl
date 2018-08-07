@@ -492,7 +492,7 @@ const SpecialMatrix = Union{Bidiagonal,SymTridiagonal,Tridiagonal}
 
 # moving several to SparseArrays since they call sparse matrix constructors
 
-*(A::SymTridiagonal,     B::BiTriSym) = A_mul_B_td!(zeros(size(A)...), A, B)
+# *(A::SymTridiagonal,     B::BiTriSym) = A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
 
 # *(A::BiTri,              B::BiTriSym) = A_mul_B_td!(zeros(size(A)...), A, B)
 # *(A::BiTriSym,           B::BiTriSym) = A_mul_B_td!(zero(A), A, B)
@@ -507,12 +507,17 @@ const SpecialMatrix = Union{Bidiagonal,SymTridiagonal,Tridiagonal}
 #     end
 # end
 
-*(A::AbstractTriangular, B::Union{SymTridiagonal, Tridiagonal}) = A_mul_B_td!(zeros(size(A)...), A, B)
+# TS = promote_op(matprod, eltype(A), eltype(B))
+# mul!(similar(B, TS, (size(A,2), size(B,2))), adjoint(A), B)
+
+matprod(x, y) = x*y + x*y
+
+*(A::AbstractTriangular, B::Union{SymTridiagonal, Tridiagonal}) = A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
 function *(A::UpperTriangular, B::Bidiagonal)
     if B.uplo == 'U'
         A_mul_B_td!(zero(A), A, B)
     else
-        A_mul_B_td!(zeros(size(A)...), A, B)
+        A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
     end
 end
 
@@ -520,13 +525,32 @@ function *(A::LowerTriangular, B::Bidiagonal)
     if B.uplo == 'L'
         A_mul_B_td!(zero(A), A, B)
     else
-        A_mul_B_td!(zeros(size(A)...), A, B)
+        A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
+    end
+end
+
+*(A::Union{SymTridiagonal, Tridiagonal}, B::AbstractTriangular) = A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
+function *(A::Bidiagonal, B::UpperTriangular)
+    if A.uplo == 'U'
+        A_mul_B_td!(zero(B), A, B)
+    else
+        A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
+    end
+end
+
+function *(A::Bidiagonal, B::LowerTriangular)
+    if A.uplo == 'L'
+        A_mul_B_td!(zero(B), A, B)
+    else
+        A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
     end
 end
 
 *(A::AbstractTriangular, B::SymTridiagonal) = A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
 
-*(A::Diagonal,           B::BiTriSym) = A_mul_B_td!(zero(B), A, B)
+*(A::Diagonal,           B::BiTri) = A_mul_B_td!(zero(B), A, B)
+*(A::Diagonal,           B::SymTridiagonal) = A_mul_B_td!(Tridiagonal(copy(B)), A, B)
+*(A::SymTridiagonal,           B::Diagonal) = A_mul_B_td!(Tridiagonal(copy(A)), A, B)
 
 *(A::Adjoint{<:Any,<:Diagonal}, B::BiTriSym) = A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)
 *(A::Transpose{<:Any,<:Diagonal}, B::BiTriSym) = A_mul_B_td!(zeros(eltype(A), size(A)...), A, B)

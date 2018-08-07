@@ -55,6 +55,5 @@ similar(M::Tridiagonal, ::Type{T}, dims::Union{Dims{1},Dims{2}}) where {T} = spz
 const BiTri = Union{Bidiagonal,Tridiagonal}
 const BiTriSym = Union{Bidiagonal,SymTridiagonal,Tridiagonal}
 
-*(A::BiTri,              B::BiTriSym) = mul!(spzeros(size(A)...), A, B)
-*(A::BiTriSym,           B::BiTriSym) = mul!(spzeros(size(A)...), A, B)
+*(A::BiTriSym, B::BiTriSym) = mul!(spzeros(eltype(A),size(A)...), A, B)
 end

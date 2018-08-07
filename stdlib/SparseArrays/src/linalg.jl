@@ -126,6 +126,9 @@ function (*)(X::StridedMatrix{TX}, A::SparseMatrixCSC{TvA,TiA}) where {TX,TvA,Ti
     Y
 end
 
+#*(A::SparseMatrixCSC, B::Union{UpperTriangular, LowerTriangular}) = Array(A) * Array(B)
+#*(A::Union{UpperTriangular, LowerTriangular}, B::SparseMatrixCSC) = Array(A) * Array(B)
+
 function (*)(D::Diagonal, A::SparseMatrixCSC)
     T = Base.promote_op(*, eltype(D), eltype(A))
     mul!(LinearAlgebra.copy_oftype(A, T), D, A)
