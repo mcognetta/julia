@@ -4,6 +4,7 @@
 
 isreal(x::AbstractArray) = all(isreal,x)
 iszero(x::AbstractArray) = all(iszero,x)
+isone(x::AbstractArray) = all(isone,x)
 isreal(x::AbstractArray{<:Real}) = true
 all(::typeof(isinteger), ::AbstractArray{<:Integer}) = true
 

@@ -67,6 +67,13 @@ convert(T::Type{<:Tridiagonal},    m::ConvertibleSpecialMatrix) = m isa T ? m : 
 convert(T::Type{<:LowerTriangular}, m::Union{LowerTriangular,UnitLowerTriangular}) = m isa T ? m : T(m)
 convert(T::Type{<:UpperTriangular}, m::Union{UpperTriangular,UnitUpperTriangular}) = m isa T ? m : T(m)
 
+convert(T::Type{LowerTriangular}, m::Bidiagonal) = m.uplo == 'L' ? T(m) : throw(ArgumentError("matrix cannot be represented as LowerTriangular"))
+convert(T::Type{UpperTriangular}, m::Bidiagonal) = m.uplo == 'U' ? T(m) : throw(ArgumentError("matrix cannot be represented as UpperTriangular"))
+
+convert(T::Type{UnitLowerTriangular}, m::Bidiagonal) = m.uplo == 'L' && isone(m.dv) ? T(m) : throw(ArgumentError("matrix cannot be represented as LowerTriangular"))
+convert(T::Type{UnitUpperTriangular}, m::Bidiagonal) = m.uplo == 'U' && isone(m.dv) ? T(m) : throw(ArgumentError("matrix cannot be represented as UpperTriangular"))
+
+
 # Constructs two method definitions taking into account (assumed) commutativity
 # e.g. @commutative f(x::S, y::T) where {S,T} = x+y is the same is defining
 #     f(x::S, y::T) where {S,T} = x+y
@@ -119,12 +126,33 @@ for op in (:+, :-)
             end
         end
     end
-    for matrixtype in (:SymTridiagonal,:Tridiagonal,:Bidiagonal,:Matrix)
+    for matrixtype in (:SymTridiagonal,:Tridiagonal,:Matrix)
         @eval begin
             ($op)(A::AbstractTriangular, B::($matrixtype)) = ($op)(copyto!(similar(parent(A)), A), B)
             ($op)(A::($matrixtype), B::AbstractTriangular) = ($op)(A, copyto!(similar(parent(B)), B))
         end
     end
+
+    for (matrixtype, uplo) in ((:UpperTriangular, 'U'), (UnitUpperTriangular, 'U'),(:LowerTriangular, 'L'), (UnitLowerTriangular, 'L'))
+        @eval begin
+            function ($op)(A::($matrixtype), B::Bidiagonal)
+                if B.uplo == $uplo
+                    ($op)(A, convert(($matrixtype), B))
+                else
+                    ($op)(A, copyto!(similar(parent(A)), B))
+                end
+            end
+
+            function ($op)(A::Bidiagonal, B::($matrixtype))
+                if A.uplo == $uplo
+                    ($op)(convert(($matrixtype), A), B)
+                else
+                    ($op)(copyto!(similar(parent(B)), A), B)
+                end
+            end
+        end
+    end
+
 end
 
 rmul!(A::AbstractTriangular, adjB::Adjoint{<:Any,<:Union{QRCompactWYQ,QRPackedQ}}) =
