@@ -1,6 +1,7 @@
 ## LLVM ##
 include $(SRCDIR)/llvm-ver.make
 
+ifneq ($(USE_BINARYBUILDER_LLVM), 1)
 LLVM_GIT_URL_BASE ?= http://llvm.org/git
 LLVM_GIT_URL_LLVM ?= $(LLVM_GIT_URL_BASE)/llvm.git
 LLVM_GIT_URL_CLANG ?= $(LLVM_GIT_URL_BASE)/clang.git
@@ -64,6 +65,7 @@ LLVM_CXXFLAGS += $(CXXFLAGS)
 LLVM_CPPFLAGS += $(CPPFLAGS)
 LLVM_LDFLAGS += $(LDFLAGS)
 LLVM_CMAKE += -DLLVM_TARGETS_TO_BUILD:STRING="$(LLVM_TARGETS)" -DCMAKE_BUILD_TYPE="$(LLVM_CMAKE_BUILDTYPE)"
+LLVM_CMAKE += -DLLVM_ENABLE_ZLIB=OFF -DLLVM_ENABLE_LIBXML2=OFF
 ifeq ($(USE_POLLY_ACC),1)
 LLVM_CMAKE += -DPOLLY_ENABLE_GPGPU_CODEGEN=ON
 endif
@@ -95,6 +97,10 @@ endif # USE_INTEL_JITEVENTS
 ifeq ($(USE_OPROFILE_JITEVENTS), 1)
 LLVM_CMAKE += -DLLVM_USE_OPROFILE:BOOL=ON
 endif # USE_OPROFILE_JITEVENTS
+
+ifeq ($(USE_PERF_JITEVENTS), 1)
+	LLVM_CMAKE += -DLLVM_USE_PERF:BOOL=ON
+endif # USE_PERF_JITEVENTS
 
 ifeq ($(BUILD_LLDB),1)
 ifeq ($(USECLANG),0)
@@ -367,12 +373,14 @@ endif # LLVM_VER
 	touch -c $(LLVM_SRC_DIR)/CMakeLists.txt
 	echo 1 > $@
 
-# Apply version-specific LLVM patches
+# Apply version-specific LLVM patches sequentially
 LLVM_PATCH_PREV :=
 define LLVM_PATCH
 $$(LLVM_SRC_DIR)/$1.patch-applied: $$(LLVM_SRC_DIR)/source-extracted | $$(SRCDIR)/patches/$1.patch $$(LLVM_PATCH_PREV)
 	cd $$(LLVM_SRC_DIR) && patch -p1 < $$(SRCDIR)/patches/$1.patch
 	echo 1 > $$@
+# declare that applying any patch must re-run the compile step
+$$(LLVM_BUILDDIR_withtype)/build-compiled: $$(LLVM_SRC_DIR)/$1.patch-applied
 LLVM_PATCH_PREV := $$(LLVM_SRC_DIR)/$1.patch-applied
 endef
 
@@ -416,6 +424,7 @@ $(eval $(call LLVM_PATCH,llvm-D30114)) # PPC remove for 5.0
 $(eval $(call LLVM_PATCH,llvm-PR36292)) # PPC fixes #26249, remove for 6.0
 $(eval $(call LLVM_PATCH,llvm-D39297-musl-dynamiclibrary-pre5)) # Remove for 6.0
 $(eval $(call LLVM_PATCH,llvm-D28476-musl-targetlibraryinfo_3.9)) # Remove for 5.0
+$(eval $(call LLVM_PATCH,llvm-D46460))
 ifeq ($(BUILD_LLVM_CLANG),1)
 $(eval $(call LLVM_PATCH,compiler_rt-3.9-glibc_2.25.90)) # Remove for 5.0
 $(eval $(call LLVM_PATCH,clang-D28477)) # Remove for 5.0
@@ -450,6 +459,7 @@ $(eval $(call LLVM_PATCH,llvm-D30114)) # PPC remove for 5.0
 $(eval $(call LLVM_PATCH,llvm-PR36292)) # PPC fixes #26249, remove for 6.0
 $(eval $(call LLVM_PATCH,llvm-D39297-musl-dynamiclibrary-pre5)) # Remove for 6.0
 $(eval $(call LLVM_PATCH,llvm-D28476-musl-targetlibraryinfo_4.0)) # Remove for 5.0
+$(eval $(call LLVM_PATCH,llvm-D46460))
 ifeq ($(BUILD_LLVM_CLANG),1)
 $(eval $(call LLVM_PATCH,compiler_rt-3.9-glibc_2.25.90)) # Remove for 5.0
 $(eval $(call LLVM_PATCH,clang-D28477)) # Remove for 5.0
@@ -468,6 +478,7 @@ $(eval $(call LLVM_PATCH,llvm-D42262-jumpthreading-not-i1)) # remove for 7.0
 $(eval $(call LLVM_PATCH,llvm-PPC-addrspaces)) # PPC
 $(eval $(call LLVM_PATCH,llvm-PR36292-5.0)) # PPC fixes #26249, remove for 6.0
 $(eval $(call LLVM_PATCH,llvm-D39297-musl-dynamiclibrary)) # Remove for 6.0
+$(eval $(call LLVM_PATCH,llvm-D46460))
 else ifeq ($(LLVM_VER_SHORT),6.0)
 $(eval $(call LLVM_PATCH,llvm-D27629-AArch64-large_model_4.0))
 $(eval $(call LLVM_PATCH,llvm-D34078-vectorize-fdiv))
@@ -482,6 +493,20 @@ $(eval $(call LLVM_PATCH,llvm-6.0-D44650)) # mingw32 build fix
 $(eval $(call LLVM_PATCH,llvm-D45008)) # remove for 7.0
 $(eval $(call LLVM_PATCH,llvm-D45070)) # remove for 7.0
 $(eval $(call LLVM_PATCH,llvm-6.0.0-ifconv-D45819)) # remove for 7.0
+$(eval $(call LLVM_PATCH,llvm-D46460))
+$(eval $(call LLVM_PATCH,llvm-rL332680)) # remove for 7.0
+$(eval $(call LLVM_PATCH,llvm-rL332682)) # remove for 7.0
+$(eval $(call LLVM_PATCH,llvm-rL332302)) # remove for 7.0
+$(eval $(call LLVM_PATCH,llvm-rL332694)) # remove for 7.0
+$(eval $(call LLVM_PATCH,llvm-rL327898)) # remove for 7.0
+$(eval $(call LLVM_PATCH,llvm-6.0-DISABLE_ABI_CHECKS))
+$(eval $(call LLVM_PATCH,llvm-OProfile-line-num))
+$(eval $(call LLVM_PATCH,llvm-D44892-Perf-integration))
+$(eval $(call LLVM_PATCH,llvm-D49832-SCEVPred)) # Remove for 7.0
+$(eval $(call LLVM_PATCH,llvm-rL323946-LSRTy)) # Remove for 7.0
+$(eval $(call LLVM_PATCH,llvm-D50010-VNCoercion-ni))
+$(eval $(call LLVM_PATCH,llvm-D50167-scev-umin))
+$(eval $(call LLVM_PATCH,llvm-windows-race))
 endif # LLVM_VER
 
 # Remove hardcoded OS X requirements in compilter-rt cmake build
@@ -496,7 +521,8 @@ endif
 $(eval $(call LLVM_PATCH,llvm-symver-jlprefix)) # DO NOT REMOVE
 
 
-$(LLVM_BUILDDIR_withtype)/build-configured: $(LLVM_PATCH_PREV)
+# declare that all patches must be applied before running ./configure
+$(LLVM_BUILDDIR_withtype)/build-configured: | $(LLVM_PATCH_PREV)
 
 $(LLVM_BUILDDIR_withtype)/build-configured: $(LLVM_SRC_DIR)/source-extracted | $(llvm_python_workaround) $(LIBCXX_DEPENDENCY)
 	mkdir -p $(dir $@)
@@ -566,3 +592,38 @@ ifeq ($(USE_POLLY),1)
 	([ -d "$(LLVM_SRC_DIR)/tools/polly" ] || exit 0;           cd $(LLVM_SRC_DIR)/tools/polly; git pull --ff-only)
 endif
 endif
+else # USE_BINARYBUILDER_LLVM
+LLVM_BB_URL_BASE := https://github.com/staticfloat/LLVMBuilder/releases/download
+ifneq ($(BINARYBUILDER_LLVM_ASSERTS), 1)
+LLVM_BB_NAME := LLVM
+else
+LLVM_BB_NAME := LLVM.asserts
+endif
+LLVM_BB_NAME := $(LLVM_BB_NAME).v$(LLVM_VER)
+LLVM_BB_URL := $(LLVM_BB_URL_BASE)/v$(LLVM_VER)-$(LLVM_BB_REL)/$(LLVM_BB_NAME).$(BINARYBUILDER_TRIPLET).tar.gz
+
+
+$(BUILDDIR)/llvm-$(LLVM_VER)-$(LLVM_BB_REL):
+	mkdir -p $@
+
+$(BUILDDIR)/llvm-$(LLVM_VER)-$(LLVM_BB_REL)/LLVM.$(BINARYBUILDER_TRIPLET).tar.gz: | $(BUILDDIR)/llvm-$(LLVM_VER)-$(LLVM_BB_REL)
+	$(JLDOWNLOAD) $@ $(LLVM_BB_URL)
+
+$(BUILDDIR)/llvm-$(LLVM_VER)-$(LLVM_BB_REL)/build-compiled: | $(BUILDDIR)/llvm-$(LLVM_VER)-$(LLVM_BB_REL)/LLVM.$(BINARYBUILDER_TRIPLET).tar.gz
+	echo 1 > $@
+
+$(eval $(call staged-install,llvm,llvm-$$(LLVM_VER)-$$(LLVM_BB_REL),,,,))
+
+#Override provision of stage tarball
+$(build_staging)/llvm-$(LLVM_VER)-$(LLVM_BB_REL).tgz: $(BUILDDIR)/llvm-$(LLVM_VER)-$(LLVM_BB_REL)/LLVM.$(BINARYBUILDER_TRIPLET).tar.gz
+	cp $< $@
+
+clean-llvm:
+distclean-llvm:
+get-llvm:  $(BUILDDIR)/llvm-$(LLVM_VER)-$(LLVM_BB_REL)/LLVM.$(BINARYBUILDER_TRIPLET).tar.gz
+extract-llvm:
+configure-llvm:
+compile-llvm:
+fastcheck-llvm:
+check-llvm:
+endif # USE_BINARYBUILDER_LLVM

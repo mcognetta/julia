@@ -111,8 +111,13 @@ void addOptimizationPasses(legacy::PassManagerBase *PM, int opt_level, bool dump
 #if defined(JL_MSAN_ENABLED)
     PM->add(llvm::createMemorySanitizerPass(true));
 #endif
-    if (opt_level == 0) {
+    if (opt_level < 2) {
         PM->add(createCFGSimplificationPass()); // Clean up disgusting code
+        if (opt_level == 1) {
+            PM->add(createSROAPass());                 // Break up aggregate allocas
+            PM->add(createInstructionCombiningPass()); // Cleanup for scalarrepl.
+            PM->add(createEarlyCSEPass());
+        }
 #if JL_LLVM_VERSION < 50000
         PM->add(createBarrierNoopPass());
         PM->add(createLowerExcHandlersPass());
@@ -134,6 +139,7 @@ void addOptimizationPasses(legacy::PassManagerBase *PM, int opt_level, bool dump
         PM->add(createLateLowerGCFramePass());
         PM->add(createLowerPTLSPass(dump_native));
 #endif
+        PM->add(createLowerSimdLoopPass());        // Annotate loop marked with "simdloop" as LLVM parallel loop
         if (dump_native)
             PM->add(createMultiVersioningPass());
         return;
@@ -145,8 +151,8 @@ void addOptimizationPasses(legacy::PassManagerBase *PM, int opt_level, bool dump
     }
     // list of passes from vmkit
     PM->add(createCFGSimplificationPass()); // Clean up disgusting code
-    PM->add(createDeadInstEliminationPass());
-    PM->add(createPromoteMemoryToRegisterPass()); // Kill useless allocas
+    PM->add(createDeadCodeEliminationPass());
+    PM->add(createSROAPass()); // Kill useless allocas
 
     // Due to bugs and missing features LLVM < 5.0, does not properly propagate
     // our invariants. We need to do GC rooting here. This reduces the
@@ -175,14 +181,14 @@ void addOptimizationPasses(legacy::PassManagerBase *PM, int opt_level, bool dump
     PM->add(createAllocOptPass());
 #endif
     PM->add(createInstructionCombiningPass()); // Cleanup for scalarrepl.
+    // Now that SROA has cleaned up for front-end mess, a lot of control flow should
+    // be more evident - try to clean it up.
+    PM->add(createCFGSimplificationPass());    // Merge & remove BBs
     if (dump_native)
         PM->add(createMultiVersioningPass());
     PM->add(createSROAPass());                 // Break up aggregate allocas
     PM->add(createInstructionCombiningPass()); // Cleanup for scalarrepl.
     PM->add(createJumpThreadingPass());        // Thread jumps.
-    // NOTE: CFG simp passes after this point seem to hurt native codegen.
-    // See issue #6112. Should be re-evaluated when we switch to MCJIT.
-    //PM->add(createCFGSimplificationPass());    // Merge & remove BBs
     PM->add(createInstructionCombiningPass()); // Combine silly seq's
 
     //PM->add(createCFGSimplificationPass());    // Merge & remove BBs
@@ -193,6 +199,11 @@ void addOptimizationPasses(legacy::PassManagerBase *PM, int opt_level, bool dump
 
     PM->add(createEarlyCSEPass()); //// ****
 
+#if JL_LLVM_VERSION >= 50000
+    // Load forwarding above can expose allocations that aren't actually used
+    // remove those before optimizing loops.
+    PM->add(createAllocOptPass());
+#endif
     PM->add(createLoopIdiomPass()); //// ****
     PM->add(createLoopRotatePass());           // Rotate loops.
 #ifdef USE_POLLY
@@ -215,6 +226,10 @@ void addOptimizationPasses(legacy::PassManagerBase *PM, int opt_level, bool dump
     PM->add(createSimpleLoopUnrollPass());     // Unroll small loops
     //PM->add(createLoopStrengthReducePass());   // (jwb added)
 
+#if JL_LLVM_VERSION >= 50000
+    // Run our own SROA on heap objects before LLVM's
+    PM->add(createAllocOptPass());
+#endif
     // Re-run SROA after loop-unrolling (useful for small loops that operate,
     // over the structure of an aggregate)
     PM->add(createSROAPass());                 // Break up aggregate allocas
@@ -231,6 +246,10 @@ void addOptimizationPasses(legacy::PassManagerBase *PM, int opt_level, bool dump
     PM->add(createJumpThreadingPass());         // Thread jumps
     PM->add(createDeadStoreEliminationPass());  // Delete dead stores
 
+#if JL_LLVM_VERSION >= 50000
+    // More dead allocation (store) deletion before loop optimization
+    PM->add(createAllocOptPass());
+#endif
     // see if all of the constant folding has exposed more loops
     // to simplification and deletion
     // this helps significantly with cleaning up iteration
@@ -238,14 +257,9 @@ void addOptimizationPasses(legacy::PassManagerBase *PM, int opt_level, bool dump
     PM->add(createLoopIdiomPass());
     PM->add(createLoopDeletionPass());          // Delete dead loops
     PM->add(createJumpThreadingPass());         // Thread jumps
-
-    if (opt_level >= 3) {
-        PM->add(createSLPVectorizerPass());     // Vectorize straight-line code
-    }
-
+    PM->add(createSLPVectorizerPass());         // Vectorize straight-line code
     PM->add(createAggressiveDCEPass());         // Delete dead instructions
-    if (opt_level >= 3)
-        PM->add(createInstructionCombiningPass());   // Clean up after SLP loop vectorizer
+    PM->add(createInstructionCombiningPass());  // Clean up after SLP loop vectorizer
     PM->add(createLoopVectorizePass());         // Vectorize loops
     PM->add(createInstructionCombiningPass());  // Clean up after loop vectorizer
     // LowerPTLS removes an indirect call. As a result, it is likely to trigger
@@ -391,6 +405,7 @@ void JuliaOJIT::DebugObjectRegistrar::registerObject(RTDyldObjHandleT H, const O
         NotifyGDB(SavedObject);
     }
 
+    JIT.NotifyFinalizer(*Object, *LO);
     SavedObjects.push_back(std::move(SavedObject));
 
     ORCNotifyObjectEmitted(JuliaListener.get(), *Object,
@@ -611,9 +626,9 @@ void JuliaOJIT::addModule(std::unique_ptr<Module> M)
 void JuliaOJIT::removeModule(ModuleHandleT H)
 {
 #if JL_LLVM_VERSION >= 50000
-    CompileLayer.removeModule(H);
+    (void)CompileLayer.removeModule(H);
 #else
-    CompileLayer.removeModuleSet(H);
+    (void)CompileLayer.removeModuleSet(H);
 #endif
 }
 
@@ -662,7 +677,16 @@ Function *JuliaOJIT::FindFunctionNamed(const std::string &Name)
 
 void JuliaOJIT::RegisterJITEventListener(JITEventListener *L)
 {
-    // TODO
+    if (!L)
+        return;
+    EventListeners.push_back(L);
+}
+
+void JuliaOJIT::NotifyFinalizer(const object::ObjectFile &Obj,
+                                const RuntimeDyld::LoadedObjectInfo &LoadedObjectInfo)
+{
+    for (auto &Listener : EventListeners)
+        Listener->NotifyObjectEmitted(Obj, LoadedObjectInfo);
 }
 
 const DataLayout& JuliaOJIT::getDataLayout() const
@@ -1131,7 +1155,7 @@ void jl_dump_native(const char *bc_fname, const char *unopt_bc_fname, const char
     shadow_output->setTargetTriple(TM->getTargetTriple().str());
 #if JL_LLVM_VERSION >= 40000
     DataLayout DL = TM->createDataLayout();
-    DL.reset(DL.getStringRepresentation() + "-ni:10:11:12");
+    DL.reset(DL.getStringRepresentation() + "-ni:10:11:12:13");
     shadow_output->setDataLayout(DL);
 #else
     shadow_output->setDataLayout(TM->createDataLayout());
@@ -1165,6 +1189,11 @@ void jl_dump_native(const char *bc_fname, const char *unopt_bc_fname, const char
     };
 
     add_output(*shadow_output, "unopt.bc", "text.bc", "text.o");
+    // save some memory, by deleting all of the function bodies
+    for (auto &F : shadow_output->functions()) {
+        if (!F.isDeclaration())
+            F.deleteBody();
+    }
 
     LLVMContext &Context = shadow_output->getContext();
     std::unique_ptr<Module> sysimage(new Module("sysimage", Context));
