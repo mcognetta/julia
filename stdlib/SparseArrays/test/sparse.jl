@@ -2289,43 +2289,4 @@ end
     @test adjoint(MC) == copy(adjoint(SC))
 end
 
-@testset "Triangular matrices" begin
-    rng = Random.MersenneTwister(0)
-    n = 1000
-    A = sprand(rng, n, n, 0.01)
-    B = ones(n)
-    MA = Matrix(A)
-    for tr in (identity, adjoint, transpose)
-        for wr in (UpperTriangular, LowerTriangular, UnitUpperTriangular, UnitLowerTriangular)
-            AW = tr(wr(A))
-            MAW = tr(wr(MA))
-            @test AW * B ≈ MAW * B
-        end
-    end
-    A = A - Diagonal(diag(A))
-    A += 2I
-    MA = Matrix(A)
-    for tr in (identity, adjoint, transpose)
-        for wr in (UpperTriangular, LowerTriangular, UnitUpperTriangular, UnitLowerTriangular)
-            AW = tr(wr(A))
-            MAW = tr(wr(MA))
-            @test AW \ B ≈ MAW \ B
-        end
-    end
-<<<<<<< HEAD
-
-    A = LowerTriangular(sparse([0 2.0;0 1]))
-    @test_throws SingularException(1) A \ ones(2)
-    A = UpperTriangular(sparse([1.0 0;0 0]))
-    @test_throws SingularException(2) A \ ones(2)
-end
-
-@testset "Issue #28634" begin
-    a = SparseMatrixCSC{Int8, Int16}([1 2; 3 4])
-    na = SparseMatrixCSC(a)
-    @test typeof(a) === typeof(na)
-=======
->>>>>>> parent of 21592db0ed... additional test cases and bug fix
-end
-
 end # module
