@@ -2312,6 +2312,7 @@ end
             @test AW \ B ≈ MAW \ B
         end
     end
+<<<<<<< HEAD
 
     A = LowerTriangular(sparse([0 2.0;0 1]))
     @test_throws SingularException(1) A \ ones(2)
@@ -2323,6 +2324,8 @@ end
     a = SparseMatrixCSC{Int8, Int16}([1 2; 3 4])
     na = SparseMatrixCSC(a)
     @test typeof(a) === typeof(na)
+=======
+>>>>>>> parent of 21592db0ed... additional test cases and bug fix
 end
 
 end # module
