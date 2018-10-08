@@ -269,4 +269,23 @@ end
     @test_throws MethodError I .+ [1 1; 1 1]
 end
 
+# See Issue #28994
+@testset "+ and - when for Uniform Scaling and structured matrices with ranges" begin
+    diag = 1:5
+    offdiag = 1:4
+    diag2 = 1.0:1.5:7.0
+    offdiag2 = 1.0:1.5:6.0
+    uniformscalingmats = [UniformScaling(3), UniformScaling(1.0), UniformScaling(3//5), UniformScaling(Complex{Float64}(1.3, 3.5))]
+    mats = [Diagonal(diag), Bidiagonal(diag, offdiag, 'U'), Bidiagonal(diag, offdiag, 'L'), Tridiagonal(offdiag, diag, offdiag), SymTridiagonal(diag, offdiag),
+            Diagonal(diag2), Bidiagonal(diag2, offdiag2, 'U'), Bidiagonal(diag2, offdiag2, 'L'), Tridiagonal(offdiag2, diag2, offdiag2), SymTridiagonal(diag2, offdiag2)]
+    for op in (+, -)
+        for A in mats
+            for B in uniformscalingmats
+                @test (op)(A, B) ≈ (op)(Matrix(A), B) ≈ Matrix((op)(A, B))
+                @test (op)(B, A) ≈ (op)(B, Matrix(A)) ≈ Matrix((op)(B, A))
+            end
+        end
+    end
+end
+
 end # module TestUniformscaling

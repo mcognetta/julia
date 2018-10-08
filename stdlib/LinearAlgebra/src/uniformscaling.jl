@@ -95,6 +95,63 @@ ishermitian(J::UniformScaling) = isreal(J.λ)
 (-)(J::UniformScaling, B::BitArray{2})      = J - Array(B)
 (-)(A::AbstractMatrix, J::UniformScaling)   = A + (-J)
 
+function (+)(A::Tridiagonal, B::UniformScaling)
+    newd = A.d .+ B.λ
+    Tridiagonal(typeof(newd)(A.dl), newd, typeof(newd)(A.du))
+end
+
+function (+)(A::SymTridiagonal, B::UniformScaling)
+    newdv = A.dv .+ B.λ
+    SymTridiagonal(newdv, typeof(newdv)(A.ev))
+end
+
+function (+)(A::Bidiagonal, B::UniformScaling)
+    newdv = A.dv .+ B.λ
+    Bidiagonal(newdv, typeof(newdv)(A.ev), A.uplo)
+end
+
+function (+)(A::Diagonal, B::UniformScaling)
+    Diagonal(A.diag .+ B.λ)
+end
+
+function (+)(A::UniformScaling, B::Tridiagonal)
+    newd = A.λ .+ B.d
+    Tridiagonal(typeof(newd)(B.dl), newd, typeof(newd)(B.du))
+end
+
+function (+)(A::UniformScaling, B::SymTridiagonal)
+    newdv = A.λ .+ B.dv
+    SymTridiagonal(newdv, typeof(newdv)(B.ev))
+end
+
+function (+)(A::UniformScaling, B::Bidiagonal)
+    newdv = A.λ .+ B.dv
+    Bidiagonal(newdv, typeof(newdv)(B.ev), B.uplo)
+end
+
+function (+)(A::UniformScaling, B::Diagonal)
+    Diagonal(A.λ .+ B.diag)
+end
+
+function (-)(A::UniformScaling, B::Tridiagonal)
+    newd = A.λ .- B.d
+    Tridiagonal(typeof(newd)(-B.dl), newd, typeof(newd)(-B.du))
+end
+
+function (-)(A::UniformScaling, B::SymTridiagonal)
+    newdv = A.λ .- B.dv
+    SymTridiagonal(newdv, typeof(newdv)(-B.ev))
+end
+
+function (-)(A::UniformScaling, B::Bidiagonal)
+    newdv = A.λ .- B.dv
+    Bidiagonal(newdv, typeof(newdv)(-B.ev), B.uplo)
+end
+
+function (-)(A::UniformScaling, B::Diagonal)
+    Diagonal(A.λ .- B.diag)
+end
+
 # Unit{Lower/Upper}Triangular matrices become {Lower/Upper}Triangular under
 # addition with a UniformScaling
 for (t1, t2) in ((:UnitUpperTriangular, :UpperTriangular),
