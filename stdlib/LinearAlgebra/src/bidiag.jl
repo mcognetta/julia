@@ -335,8 +335,6 @@ end
 
 const BiTriSym = Union{Bidiagonal,Tridiagonal,SymTridiagonal}
 const BiTri = Union{Bidiagonal,Tridiagonal}
-mul!(C::AbstractMatrix,   A::SymTridiagonal,     B::BiTriSym) = A_mul_B_td!(C, A, B)
-mul!(C::AbstractMatrix,   A::BiTri,              B::BiTriSym) = A_mul_B_td!(C, A, B)
 mul!(C::AbstractMatrix,   A::BiTriSym,           B::BiTriSym) = A_mul_B_td!(C, A, B)
 mul!(C::AbstractMatrix,   A::AbstractTriangular, B::BiTriSym) = A_mul_B_td!(C, A, B)
 mul!(C::AbstractMatrix,   A::AbstractMatrix,     B::BiTriSym) = A_mul_B_td!(C, A, B)
@@ -351,10 +349,14 @@ mul!(C::AbstractMatrix,   A::Transpose{<:Any,<:AbstractTriangular}, B::BiTriSym)
 mul!(C::AbstractMatrix,   A::Adjoint{<:Any,<:AbstractVecOrMat}, B::BiTriSym) = A_mul_B_td!(C, A, B)
 mul!(C::AbstractMatrix,   A::Transpose{<:Any,<:AbstractVecOrMat}, B::BiTriSym) = A_mul_B_td!(C, A, B)
 mul!(C::AbstractVector,   A::BiTri,              B::AbstractVector) = A_mul_B_td!(C, A, B)
-mul!(C::AbstractMatrix,   A::BiTri,              B::AbstractVecOrMat) = A_mul_B_td!(C, A, B)
-mul!(C::AbstractVecOrMat, A::BiTri,              B::AbstractVecOrMat) = A_mul_B_td!(C, A, B)
-mul!(C::AbstractMatrix,   A::BiTri, B::Transpose{<:Any,<:AbstractVecOrMat}) = A_mul_B_td!(C, A, B) # around bidiag line 330
-mul!(C::AbstractMatrix,   A::BiTri, B::Adjoint{<:Any,<:AbstractVecOrMat}) = A_mul_B_td!(C, A, B)
+mul!(C::AbstractMatrix,   A::BiTri,              B::AbstractVector) = A_mul_B_td!(C, A, B)
+mul!(C::AbstractMatrix,   A::BiTri,              B::AbstractMatrix) = A_mul_B_td!(C, A, B)
+mul!(C::AbstractVecOrMat, A::BiTri,              B::AbstractVector) = A_mul_B_td!(C, A, B)
+mul!(C::AbstractVecOrMat, A::BiTri,              B::AbstractMatrix) = A_mul_B_td!(C, A, B)
+mul!(C::AbstractMatrix,   A::BiTri, B::Transpose{<:Any,<:AbstractVector}) = A_mul_B_td!(C, A, B) # around bidiag line 330
+mul!(C::AbstractMatrix,   A::BiTri, B::Transpose{<:Any,<:AbstractMatrix}) = A_mul_B_td!(C, A, B)
+mul!(C::AbstractMatrix,   A::BiTri, B::Adjoint{<:Any,<:AbstractVector}) = A_mul_B_td!(C, A, B)
+mul!(C::AbstractMatrix,   A::BiTri, B::Adjoint{<:Any,<:AbstractMatrix}) = A_mul_B_td!(C, A, B)
 mul!(C::AbstractVector,   A::BiTri, B::Transpose{<:Any,<:AbstractVecOrMat}) = throw(MethodError(mul!, (C, A, B)))
 
 function check_A_mul_B!_sizes(C, A, B)
